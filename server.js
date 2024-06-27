@@ -1,7 +1,9 @@
 import express from 'express';
-import {Server} from 'socket.io';
+import { Server } from 'socket.io';
 import cors from 'cors';
 import http from 'http';
+import { connect } from './config.js';
+import { chatModel } from './chat.schema.js';
 
 const app = express();
 
@@ -9,37 +11,45 @@ const app = express();
 const server = http.createServer(app);
 
 // 2. Create socket server.
-const io = new Server(server,{
-    cors:{
-        origin:'*',
-        methods:["GET", "POST"]
+const io = new Server(server, {
+    cors: {
+        origin: '*',
+        methods: ["GET", "POST"]
     }
 });
 
 // 3. Use socket events.
 
-io.on('connection', (socket)=>{
+io.on('connection', (socket) => {
     console.log("Connection is established");
-    
-    socket.on("join", (data)=>{
+
+    socket.on("join", (data) => {
         socket.username = data;
     });
 
-    socket.on('new_message', (message)=>{
+    socket.on('new_message', (message) => {
         let userMessage = {
             username: socket.username,
             message: message
         }
 
-        // broadcast this message to all the clients.
-        socket.broadcast.emit('broadcast_message', userMessage);
+        const newChat = new chatModel({
+            username: socket.username,
+            message: message,
+            timestamp: new Date()
+        });
+        newChat.save();
+
+            // broadcast this message to all the clients.
+            socket.broadcast.emit('broadcast_message', userMessage);
     })
 
-    socket.on('disconnect', ()=>{
+    socket.on('disconnect', () => {
         console.log("Connection is disconnected");
     })
 });
 
-server.listen(3000, ()=>{
+server.listen(3000, () => {
     console.log("App is listening on 3000");
+    connect();
 })
